@@ -12,9 +12,9 @@ class ImageReader
 
     private $unitSize = null;
 
-    public function __construct($filename)
+    public function __construct($imageFileOrData)
     {
-        $this->filename = $filename;
+        $this->filename = $imageFileOrData;
     }
 
     public function read()
@@ -32,11 +32,20 @@ class ImageReader
 
     private function cropLine()
     {
-        $image = Image::open($this->filename);
+        $image = $this->openImage();
         $this->width = $image->width();
         $halfHeight = (int) ($image->height() / 2);
 
         return $image->crop(0, $halfHeight, $this->width, 1);
+    }
+
+    private function openImage()
+    {
+        if (is_file($this->filename)) {
+            return Image::open($this->filename);
+        }
+
+        return Image::fromData($this->filename);
     }
 
     private function fillBuffer($data)
