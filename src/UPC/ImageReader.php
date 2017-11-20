@@ -19,11 +19,11 @@ class ImageReader
 
     public function read()
     {
-
         $line = $this->cropLine();
         $data = $line->get('png');
+
         $buffer = $this->fillBuffer($data);
-        $buffer = $this->filterInitBars($buffer);
+        $buffer = $this->filterBorderBars($buffer);
 
         $encodedValues = $this->readBars($buffer);
 
@@ -71,7 +71,7 @@ class ImageReader
         return $buffer;
     }
 
-    private function filterInitBars($buffer)
+    private function filterBorderBars($buffer)
     {
         $bars = 0;
         $lastValue = $buffer[0];
@@ -89,9 +89,27 @@ class ImageReader
             }
         }
 
-        $this->unitSize = $buffer[$idx];
+        $begin = $idx;
 
-        return array_slice($buffer, $idx);
+        $bars = 1;
+        $lastValue = $buffer[count($buffer)-1];
+
+        for ($idx = count($buffer) - 2; $idx > 0 ; $idx--) {
+            if ($lastValue == $buffer[$idx]) {
+                $bars++;
+            } else {
+                $lastValue = $buffer[$idx];
+                $bars = 1;
+            }
+
+            if (3 === $bars) {
+                break;
+            }
+        }
+
+        $this->unitSize = $buffer[1];
+
+        return array_slice($buffer, $begin, count($buffer) - $begin*2);
     }
 
     private function readBars($buffer)
@@ -100,34 +118,36 @@ class ImageReader
         foreach ($buffer as $bar) {
             $result[] = $bar / $this->unitSize;
         }
-        $result = array_chunk($result, 4);
 
-        $result = array_filter($result, function($value) {
-            return (count($value) == 4);
-        });
+        [$first, $second] = $this->splitToHalves($result);
 
-        $result = $this->reverseSecondHalf($result);
+        $first = array_chunk($first, 4);
+        $second = $this->reverseChunks(array_chunk($second, 4));
+        $x = array_merge_recursive($first, $second);
 
         return array_map(function($value) {
             return implode('-', $value);
-        }, $result);
+        }, $x);
     }
 
-    private function reverseSecondHalf($bars)
+    private function splitToHalves($values)
     {
-        $revert = false;
-        foreach ($bars as $key => $values) {
-            if ($revert) {
-                $bars[$key] = array_reverse($bars[$key]);
-            }
+        $half = (count($values)-1) / 2;
 
-            if ($values[0] == 1 && $values[1] = 1 && $values[2] == 1 && $values[3] == 1) {
-                $revert = true;
-                unset($bars[$key]);
-            }
+        if ($values[$half - 2] == 1 && $values[$half - 1] == 1 && $values[$half] == 1 && $values[$half + 1] == 1 && $values[$half + 2] == 1) {
+            $firstHalf = array_slice($values, 0, $half - 2);
+            $secondHalf = array_slice($values, $half + 3);
+
+
+            return [$firstHalf, $secondHalf];
         }
+    }
 
-        return $bars;
+    private function reverseChunks($chunks)
+    {
+        return array_map(function($value) {
+            return array_reverse($value);
+        }, $chunks);
     }
 
 
