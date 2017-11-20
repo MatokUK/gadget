@@ -41,7 +41,7 @@ class ImageReader
 
     private function openImage()
     {
-        if (is_file($this->filename)) {
+        if (@is_file($this->filename)) {
             return Image::open($this->filename);
         }
 
