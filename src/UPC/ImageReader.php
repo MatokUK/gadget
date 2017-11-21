@@ -19,18 +19,17 @@ class ImageReader
 
     public function read()
     {
-        $line = $this->cropLine();
+        $line = $this->cropLineFromMiddle();
         $data = $line->get('png');
 
         $buffer = $this->fillBuffer($data);
         $buffer = $this->filterBorderBars($buffer);
-
         $encodedValues = $this->readBars($buffer);
 
         return $encodedValues;
     }
 
-    private function cropLine()
+    private function cropLineFromMiddle()
     {
         $image = $this->openImage();
         $this->width = $image->width();
@@ -73,28 +72,20 @@ class ImageReader
 
     private function filterBorderBars($buffer)
     {
-        $bars = 0;
+        $begin = 1 + $this->getBorderPosition($buffer);
+        $this->unitSize = $buffer[$begin - 1];
+
+        $endOffset = 1 + $this->getBorderPosition(array_reverse($buffer));
+
+        return array_slice($buffer, $begin, count($buffer) - $begin - $endOffset);
+    }
+
+    private function getBorderPosition($buffer)
+    {
+        $bars = 1;
         $lastValue = $buffer[0];
 
         for ($idx = 1; $idx < count($buffer); $idx++) {
-            if ($lastValue == $buffer[$idx]) {
-                $bars++;
-            } else {
-                $lastValue = $buffer[$idx];
-                $bars = 0;
-            }
-
-            if (3 === $bars) {
-                break;
-            }
-        }
-
-        $begin = $idx;
-
-        $bars = 1;
-        $lastValue = $buffer[count($buffer)-1];
-
-        for ($idx = count($buffer) - 2; $idx > 0 ; $idx--) {
             if ($lastValue == $buffer[$idx]) {
                 $bars++;
             } else {
@@ -107,9 +98,7 @@ class ImageReader
             }
         }
 
-        $this->unitSize = $buffer[1];
-
-        return array_slice($buffer, $begin, count($buffer) - $begin*2);
+        return $idx;
     }
 
     private function readBars($buffer)
@@ -149,6 +138,4 @@ class ImageReader
             return array_reverse($value);
         }, $chunks);
     }
-
-
 }
